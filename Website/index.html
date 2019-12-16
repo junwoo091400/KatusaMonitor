@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<!-- Styles -->
+<meta charset="utf-8">
+
+<head>
+
+  <meta name="google-site-verification" content="TQ2wgCKLw0ITuvnzCDWUbn_lBMH4o2bHvTyctttECWg" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-148369062-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-148369062-1');
+</script>
+
+<!-- Resources -->
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<script src="https://www.amcharts.com/lib/4/core.js"></script>
+<script src="https://www.amcharts.com/lib/4/charts.js"></script>
+<script src="https://www.amcharts.com/lib/4/themes/animated.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+<title>2020 KATUSA Applicants Real Time Graph and Statistics</title>
+
+<meta name="description" content="2020년 입대하는 카투사 모집 현황을 실시간으로 보여주고 월별 경쟁률 및 그래프를 제공합니다." />
+<meta name="keywords" content="카투사, 카투사 실시간 경쟁률, Katusa, 카투사 실시간 지원율, 카투사 월별 경쟁률" />
+
+<meta property="og:type" content= "website" />
+<meta property="og:image" content="https://swimmingseeds.github.io/KatuSatu/pewd-background-trans.png" />
+
+<style>
+.chart-title {
+  padding: 15px;
+}
+
+#share-buttons img {
+width: 35px;
+padding: 5px;
+border: 0;
+box-shadow: 0;
+display: inline;
+}
+
+.pri-title {
+  font-size: 20px;
+  font-weight: 600
+}
+
+.pri-value {
+  font-size: 15px;
+  font-weight: 300;
+  text-align: left;
+}
+
+.countdown {
+  font-size: 40px;
+  font-weight:600;
+  text-align: center;
+}
+
+.table td {
+  text-align: center;
+}
+
+.table th {
+  text-align: center;
+}
+
+/*body{
+  background-image: url('https://media.giphy.com/media/LpFooBTGzANhz8blKY/giphy.gif');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  height: 100vh;
+  z-index:-1;
+}*/
+
+</style>
+
+<!-- Chart code -->
+<script>
+
+var CSV = {
+parse: function(csv, reviver) {
+    reviver = reviver || function(r, c, v) { return v; };
+    var chars = csv.split(''), c = 0, cc = chars.length, start, end, table = [], row;
+    while (c < cc) {
+        table.push(row = []);
+        while (c < cc && '\r' !== chars[c] && '\n' !== chars[c]) {
+            start = end = c;
+            if ('"' === chars[c]){
+                start = end = ++c;
+                while (c < cc) {
+                    if ('"' === chars[c]) {
+                        if ('"' !== chars[c+1]) { break; }
+                        else { chars[++c] = ''; } // unescape ""
+                    }
+                    end = ++c;
+                }
+                if ('"' === chars[c]) { ++c; }
+                while (c < cc && '\r' !== chars[c] && '\n' !== chars[c] && ',' !== chars[c]) { ++c; }
+            } else {
+                while (c < cc && '\r' !== chars[c] && '\n' !== chars[c] && ',' !== chars[c]) { end = ++c; }
+            }
+            row.push(reviver(table.length-1, row.length, chars.slice(start, end).join('')));
+            if (',' === chars[c]) { ++c; }
+        }
+        if ('\r' === chars[c]) { ++c; }
+        if ('\n' === chars[c]) { ++c; }
+    }
+    return table;
+},
+
+stringify: function(table, replacer) {
+    replacer = replacer || function(r, c, v) { return v; };
+    var csv = '', c, cc, r, rr = table.length, cell;
+    for (r = 0; r < rr; ++r) {
+        if (r) { csv += '\r\n'; }
+        for (c = 0, cc = table[r].length; c < cc; ++c) {
+            if (c) { csv += ','; }
+            cell = replacer(r, c, table[r][c]);
+            if (/[,\r\n"]/.test(cell)) { cell = '"' + cell.replace(/"/g, '""') + '"'; }
+            csv += (cell || 0 === cell) ? cell : '';
+        }
+    }
+    return csv;
+}
+};
+
+$(document).ready(function() {
+    $.ajax({
+        type: "GET",
+        url: "./data.csv",
+        dataType: "text",
+        success: function(data) {processData(data);}
+     });
+});
+
+function processData(text) {
+  var parsed = CSV.parse(text);
+  
+  //
+  var mojip_TOs = [100, 110, 110,//2, 3, 4
+   160, 160, 160, 160, 160,//5, 6, 7, 8, 9
+   160, 160, 160];//10, 11, 12.
+  //
+  var Rates = [];
+  Rates.push(parsed[0]);//first Row. Header.
+  for(var i=2; i<parsed.length; i++) {
+    var rateRow = [];
+    rateRow.push(parsed[i][0]);
+    for(var j=1; j<12; j++) {
+      rateRow.push((parsed[i][j] / mojip_TOs[j-1]).toFixed(1));//one decimal digit.
+    }
+    Rates.push(rateRow);
+  }//for each row.
+
+  //STATS.
+  var total_JeopSu = 0;
+  var max_rate = 0.0;
+  var max_rate_idx = -1;
+  for(var i=0; i<11; i++) {
+    var temp = parseFloat(Rates[Rates.length-1][i+1]);
+    if(temp > max_rate) {
+      max_rate = temp;
+      max_rate_idx = i;
+    }
+    //
+    total_JeopSu += parseInt(parsed[parsed.length - 1][i + 1]);//add.
+    $("#rate_month_" + String(i + 2)).text(String(temp));//update 실시간 지원율 table.
+  }
+
+  $("#maxRate").text(String(max_rate) + " (Month - " + String(max_rate_idx+2) + ")");
+  $("#numJeopsu").text(String(total_JeopSu));
+  //
+  graphIt("rawLineGraph", "신청자수", stack_ = true, parsed);
+
+  //
+  graphIt("ratesGraph", "지원률", stack_ = false, Rates);
+
+  //
+  var hourDiff = [];
+  hourDiff.push(parsed[0]);//first Row. Header.
+  for(var i=2; i<parsed.length; i++) {
+    var diffRow = [];
+    diffRow.push(parsed[i][0]);
+    for(var j=1; j<12; j++) {
+      diffRow.push(parsed[i][j] - parsed[i-1][j]);
+    }
+    hourDiff.push(diffRow);
+  }//for each row.
+  graphIt("hourDiffLineGraph", "1시간당 신청자수", stack_ = true, hourDiff);
+}
+
+function graphIt(divName, title, stack_, data_) {
+  am4core.ready(function() {
+
+  am4core.useTheme(am4themes_animated);
+
+  var chart = am4core.create(divName, am4charts.XYChart);
+  //chart.titles = title;
+
+  var data = [];
+  for (var i = 1; i < data_.length; i++) {
+    data.push({ DateTime: new Date(data_[i][0]), month_2: data_[i][1], month_3: data_[i][2], month_4: data_[i][3], month_5: data_[i][4], month_6: data_[i][5], month_7: data_[i][6], month_8: data_[i][7], month_9: data_[i][8], month_10: data_[i][9], month_11: data_[i][10], month_12: data_[i][11] });
+  }
+
+  chart.data = data;
+
+  //chart.dateFormatter.dateFormat = "yyyy-MM-dd";
+
+  var dateAxis = chart.xAxes.push(new am4charts.DateAxis());
+  dateAxis.dateFormatter = new am4core.DateFormatter();
+  dateAxis.dateFormatter.dateFormat = "MM-dd";
+  //dateAxis.dateFormats.setKey("day", "M/d/yyyy");
+  /*var dateAxis = new am4charts.DateAxis();
+  chart.dateX = dateAxis;*/
+  dateAxis.renderer.grid.template.location = 0;
+  dateAxis.renderer.labels.template.fill = am4core.color("#e59165");
+
+
+  var valueAxis = chart.yAxes.push(new am4charts.ValueAxis());
+  valueAxis.tooltip.disabled = true;
+  valueAxis.renderer.labels.template.fill = am4core.color("#e59165");
+
+  valueAxis.renderer.minWidth = 60;
+
+
+  for(var i=0; i<11; i++) {
+    var series = chart.series.push(new am4charts.LineSeries());
+    series.name = "Month-"String(i + 2);
+    series.dataFields.dateX = "DateTime";
+    series.dataFields.valueY = "month_" + String(i + 2);
+    series.tooltipText = "{name}: [bold]{valueY.value}";
+    series.stacked = stack_;
+    //series.legendSettings.itemValueText = "{valueY}";
+    /*var bullet2 = series.bullets.push(new am4charts.CircleBullet());
+    var bullet2hover = bullet2.states.create("hover");
+    bullet2hover.properties.scale = 1.3;*/
+  }
+
+  chart.cursor = new am4charts.XYCursor();
+  chart.cursor.xAxis = dateAxis;
+  chart.cursor.behavior = "none";
+
+  //chart.cursor.fullWidthLineX = true;
+
+  /*chart.cursor.lineY.stroke = am4core.color("#8F3985");
+  chart.cursor.lineY.strokeWidth = 4;
+  chart.cursor.lineY.strokeOpacity = 0.2;
+  chart.cursor.lineY.strokeDasharray = "-";*/
+
+  //ScrollBar!!
+  /*var scrollbarX = new am4charts.XYChartScrollbar();
+  scrollbarX.series.push(series);
+  chart.scrollbarX = scrollbarX;*/
+
+  chart.legend = new am4charts.Legend();
+  chart.legend.parent = chart.plotContainer;
+  chart.legend.zIndex = 100;//??
+
+  dateAxis.renderer.grid.template.strokeOpacity = 0.2;//results in cleaner separation.
+  valueAxis.renderer.grid.template.strokeOpacity = 0.07;
+
+  //chart.tapToActivate = true;
+
+  /*chart.dragGrip.disabled = false;
+  chart.dragGrip.position = "right";
+  chart.dragGrip.height = am4core.percent(50);
+  chart.dragGrip.autoHideDelay = 3000;*/
+
+  }); 
+}
+</script>
+
+<script>
+  //var countDownDate = new Date("2019-11-07 12:00:00").getTime();
+  
+  //https://stackoverflow.com/questions/6427204/date-parsing-in-javascript-is-different-between-safari-and-chrome
+  //parse function is NOT reliable, on various devices.(Ex. Safari).
+  function dateFromString(str) {
+    var a = $.map(str.split(/[^0-9]/), function(s) { return parseInt(s, 10) });
+    return new Date(a[0], a[1]-1 || 0, a[2] || 1, a[3] || 0, a[4] || 0, a[5] || 0, a[6] || 0);
+  }
+  
+  var countDownDate = dateFromString("2019-11-07 12:00:00");
+  //var countDownDate = Date.parse("2019-11-07 12:00:00", "Y-m-d H:i:s", true).getTime(); // returns null if not valid.
+  
+  // Update the count down every 1 second
+  var x = setInterval(function() {
+    // Get today's date and time
+    var now = new Date().getTime();
+    // Find the distance between now and the count down date
+    var distance = countDownDate - now;
+
+    // Time calculations for days, hours, minutes and seconds
+    var days = Math.floor(distance / (1000 * 60 * 60 * 24));
+    var hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+    var seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+    // Display the result in the element with id="demo"
+    document.getElementById("demo").innerHTML = days + "d " + hours + "h "
+    + minutes + "m " + seconds + "s ";
+
+    // If the count down is finished, write some text
+    if (distance < 0 || (countDownDate == null)) {//invalid parsing case included.
+      clearInterval(x);
+      document.getElementById("demo").innerHTML = "Time Over";
+    }
+  }, 1000);
+</script>
+
+</head>
+
+<body>
+<!-- HTML -->
+<!-- <section class="section bg-primary" style="text-align:center;">
+  <div class="container feature mb-0 p-3">
+    <div class="row">
+      <div class="col-md-2 pri-title";>선발 인원</div>
+      <div class="col-md-2 pri-value">1600</div>
+      <div class="col-md-2">총 지원자수</div>
+      <div class="col-md-2" id="numJeopsu"></div>
+      <div class="col-md-2">최대 지원률</div>
+      <div class="col-md-2" id="maxRate"></div>
+    </div>
+  </div>
+</section> -->
+<div class="m-2 p-1" style="background-image:url(./pewd-background-trans.png); height:60px;">
+  <h1 class="m-0" style="text-align: center; vertical-align: middle;">2020 KATUSA Applicants Real Time Graph and Statistics</h1>
+</div>
+
+<section class="section p-3">
+  <div class="card-deck mb-3 text-center">
+    <div class="card mb-4 box-shadow">
+      <div class="card-header">
+        <h4 class="my-0 font-weight-normal">Selection Capacity</h4>
+      </div>
+      <div class="card-body">
+        <h1 class="card-title pricing-card-title">1600<small class="text-muted">명</small></h1>
+      </div>
+    </div>
+    <div class="card mb-4 box-shadow">
+      <div class="card-header">
+        <h4 class="my-0 font-weight-normal">Total Applicants</h4>
+      </div>
+      <div class="card-body">
+        <h1><div id="numJeopsu"></div></h1>
+      </div>
+    </div>
+    <div class="card mb-4 box-shadow">
+      <div class="card-header">
+        <h4 class="my-0 font-weight-normal">MAX Rate</h4>
+      </div>
+      <div class="card-body">
+        <h1 class="card-title"><div id="maxRate">00.0</div></h1>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section p-3">
+  <div class="row">
+    <div class="col-md-9 row countdown"><!-- Countdown.-->
+        <p class="col-5">Until Selection Date</p>
+        <p id="demo" class="col-7">(Loading...)</p>
+    </div>
+    <div class="col-md-3">
+      <!-- Twitter -->
+      <a href="https://twitter.com/share?url=https://swimmingseeds.github.io/KatuSatu&amp;text=2019-Katusa-Stats!&amp;hashtags=Katusa" target="_blank">
+          <img src="https://simplesharebuttons.com/images/somacro/twitter.png" alt="Twitter" />
+      </a>
+      <!-- Reddit -->
+      <a href="http://reddit.com/submit?url=https://swimmingseeds.github.io/KatuSatu&amp;title=2019-KATUSA-Stats" target="_blank">
+          <img src="https://simplesharebuttons.com/images/somacro/reddit.png" alt="Reddit" />
+      </a>
+      <!-- Facebook -->
+      <a href="http://www.facebook.com/sharer.php?u=https://swimmingseeds.github.io/KatuSatu" target="_blank">
+          <img src="https://simplesharebuttons.com/images/somacro/facebook.png" alt="Facebook" />
+      </a>
+    </div>
+  </div><!-- Row.-->
+</section>
+
+<hr class="small" />
+
+<section class="p-3"><!-- Table! -->
+  <table class="table table-bordered">
+    <thead class="thead-light">
+      <tr>
+        <th scope="col">Application Month</th>
+        <th scope="col">2</th>
+        <th scope="col">3</th>
+        <th scope="col">4</th>
+        <th scope="col">5</th>
+        <th scope="col">6</th>
+        <th scope="col">7</th>
+        <th scope="col">8</th>
+        <th scope="col">9</th>
+        <th scope="col">10</th>
+        <th scope="col">11</th>
+        <th scope="col">12</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="font-weight: bold">
+        <th scope="row">Current Competition Rate</th>
+        <td id="rate_month_2">0</td>
+        <td id="rate_month_3">0</td>
+        <td id="rate_month_4">0</td>
+        <td id="rate_month_5">0</td>
+        <td id="rate_month_6">0</td>
+        <td id="rate_month_7">0</td>
+        <td id="rate_month_8">0</td>
+        <td id="rate_month_9">0</td>
+        <td id="rate_month_10">0</td>
+        <td id="rate_month_11">0</td>
+        <td id="rate_month_12">0</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section class="section">
+<h1 class="chart-title text-center">Competition Rate <small></small></h1>
+<div id="ratesGraph" style="width: 100%; height: 400px;"></div>
+
+<hr class="small" />
+<h1 class="chart-title text-center">Detailed Applicant Stats(Cumulative)</h1>
+<div id="rawLineGraph" style="width: 100%; height: 500px;"></div>
+<hr class="small" />
+
+<h1 class="chart-title text-center">Applicants per Hour</h1>
+<div id="hourDiffLineGraph" style="width: 100%; height: 600px;"></div>
+<hr class="small" />
+</section>
+
+<!-- <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+<script>
+  (adsbygoogle = window.adsbygoogle || []).push({
+    google_ad_client: "{{site.google_ad_client}}",
+    enable_page_level_ads: true
+  });
+</script> -->
+
+</body>
